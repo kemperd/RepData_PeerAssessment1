@@ -8,18 +8,130 @@ output:
 
 ## Loading and preprocessing the data
 
+```{r}
+require(ggplot2)
 
+# Read dataset
+activity <- read.csv("activity.csv")
+
+```
 
 ## What is mean total number of steps taken per day?
 
+1. Make a histogram of the total number of steps taken each day
 
+```{r}
+# Aggregate steps per day and plot in histogram
+aggtot <- aggregate(activity$steps, by=list(date=activity$date), FUN=sum, na.rm=TRUE)
+hist(aggtot$x, main="Total number of steps each day", xlab="Total number of steps each day")
+```
+
+2. Calculate and report the mean and median total number of steps taken per day
+
+```{r}
+# Aggregate mean steps per day 
+agg <- aggregate(activity$steps, by=list(date=activity$date), FUN=mean, na.rm=TRUE)
+names(agg) <- c('date', 'mean')
+
+# Aggregate median steps per day
+aggmed <- aggregate(activity$steps, by=list(date=activity$date), FUN=median, na.rm=TRUE)
+agg$median = aggmed$x
+
+# Report mean and median steps per day in a table
+agg
+```
 
 ## What is the average daily activity pattern?
 
+1. Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
 
+```{r}
+# Create time series plot of 5 minute interval and average number of steps taken
+aggivl = aggregate(activity$steps, by=list(interval=activity$interval), FUN=mean, na.rm=TRUE)
+qplot(interval, x, data=aggivl) + geom_line()
+```
+
+
+2. Which 5 minute interval contains the maximum number of steps?
+
+```{r}
+aggivl[order(aggivl$x, decreasing=TRUE),][1,1]
+```
 
 ## Imputing missing values
 
+1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
 
+```{r}
+sum(is.na(activity))
+```
+
+2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+
+```{r}
+# Check for missing values in the source data. 
+# Create new dataset in which all NAs are replaced by the mean of their interval
+
+aggmeanivl <- aggregate(activity$steps, by=list(interval=activity$interval), FUN=mean, na.rm=TRUE)
+merge <- merge(activity, aggmeanivl, by.x="interval", by.y="interval")
+```
+
+3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
+
+```{r}
+activityNoNA <- activity
+missing <- is.na(activityNoNA$steps)
+activityNoNA[missing,]$steps <- merge[missing,]$x
+```
+
+4. Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+```{r}
+# Aggregate steps per day (without NAs) and plot in histogram
+aggtotNoNA <- aggregate(activityNoNA$steps, by=list(date=activity$date), FUN=sum, na.rm=TRUE)
+hist(aggtotNoNA$x, main="Total number of steps each day (NAs replaced)", xlab="Total number of steps each day (NAs replaced)")
+
+# Aggregate mean steps per day (without NAs)
+aggNoNA <- aggregate(activityNoNA$steps, by=list(date=activityNoNA$date), FUN=mean, na.rm=TRUE)
+names(aggNoNA) <- c('date', 'mean')
+
+# Aggregate median steps per day (without NAs)
+aggmedNoNA <- aggregate(activityNoNA$steps, by=list(date=activityNoNA$date), FUN=median, na.rm=TRUE)
+aggNoNA$median = aggmedNoNA$x
+
+# Report mean and median steps per day (without NAs) in a table
+aggNoNA
+```
+
+These values are different from the values displayed earlier. The zero-count in the histogram is signficantly lower.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+1. Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
+
+```{r}
+activityNoNA$date <- as.Date(activityNoNA$date)
+
+# Generate day of weeks from date and determine if it is weekend or weekday
+
+# Set locale to English to format weekdays correctly (works on Windows only)
+# Uncomment the following statement if weekdays are generated in your local language
+Sys.setlocale("LC_TIME", "English")
+
+activityNoNA$weekday <- weekdays(activityNoNA$date)
+activityNoNA$weekend <- activityNoNA$weekday
+activityNoNA[activityNoNA$weekday %in% c('Saturday', 'Sunday'),]$weekend <- 'Weekend'
+activityNoNA[!activityNoNA$weekday %in% c('Saturday', 'Sunday'),]$weekend <- 'Weekday'
+
+# Aggregate data by interval and weekday type (weekend or weekday)
+aggNoNAivl<- aggregate(activityNoNA$steps, by=list(interval=activityNoNA$interval, weekend=activityNoNA$weekend), FUN=mean, na.rm=TRUE)
+```
+
+2. Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
+
+```{r}
+# Generate plot
+p <- qplot(interval, x, data=aggNoNAivl) + geom_line()
+p + facet_grid(weekend ~ .)
+```
+
